@@ -1,1 +1,1 @@
-angular.module('myapp',['ngResource','ui','DataServices','PollingService']);
+angular.module('myapp',['ngResource','ui','DataServices']);

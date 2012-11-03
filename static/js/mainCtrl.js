@@ -10,34 +10,11 @@ function mainCtrl($scope, GcodeService, StorageService, PrintControlService, Sta
         createObjectFromGCode(status.lastGcode);
     });
 
-    $scope.userCommands = {
-
-    };
-
     $scope.commands = {
         'clear':function (params, callback) {
             $scope.consoleHistory = [];
             $scope.command = '';
         },
-        /*'def':function (params, callback) {
-
-         if (params.length >= 2) {
-         console.log(params);
-         var name = params[0];
-         console.log(!$scope.commands.hasOwnProperty(name));
-         if (/\w+/.test(name) && !$scope.commands.hasOwnProperty(name)) {
-         $scope.userCommands[name] = params.slice(1).join(" ");
-         callback("user command: " + name + " has been set. type: del " + name + " to delete.");
-         }
-         else {
-         callback("illegal name: " + name);
-         }
-         }
-         },
-         'del':function (params, callback) {
-         delete $scope.userCommands[params[0]];
-         callback("user command: " + params[0] + " has been deleted.")
-         },*/
         'home':function (params, callback) {
             if (callback)
                 GcodeService.execute("G28 X0 Y0 Z0", callback);
@@ -59,7 +36,7 @@ function mainCtrl($scope, GcodeService, StorageService, PrintControlService, Sta
             if (params == undefined || params.length == 0)
                 GcodeService.execute("M105", function (data) {
                     if (data)
-                        $scope.extruderTemp = data.message.match(/T:(\d+.\d)/)[0];
+                        $scope.extruderTemp = data.message.match(/T:(\d+.\d)/)[1];
 
                     if (callback)
                         callback(data);
@@ -208,7 +185,6 @@ function mainCtrl($scope, GcodeService, StorageService, PrintControlService, Sta
 
     $scope.storeFile = function (fileName, data) {
         var data = { 'name':fileName, 'data':data }
-        $scope.
-            StorageService.store(data);
+        StorageService.store(data);
     }
 }
