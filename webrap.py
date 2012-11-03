@@ -35,7 +35,7 @@ def status():
     return json.dumps(response)
 
 
-@app.route('/printcontrol', methods=['POST'])
+@app.route('/printcontrol', methods=['GET','POST'])
 def printcontrol():
     # todo: not thread save..
     printer.received = []
@@ -94,11 +94,12 @@ def send_gcode():
     return json.dumps(response)
 
 if __name__ == '__main__':
-    if (sys.argv[1] == 'dev'):
-        settings = settings.development
-        app.debug = True
+    if (len(sys.argv) == 2):
+	if (sys.argv[1] == 'dev'):
+        	settings = settings.development
+        	app.debug = True
     else:
-        settings = settings.development
+        settings = settings.standard
 
     printer.connect(settings['USB_PORT'], settings['BAUD_RATE'])
     app.run(host='0.0.0.0')
