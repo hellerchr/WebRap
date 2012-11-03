@@ -1,0 +1,1 @@
+angular.module('myapp',['ngResource','ui','DataServices','PollingService']);
