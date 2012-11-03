@@ -13,5 +13,5 @@ Features
 
 Warning
 -------
-This tool is in an early stage. So at the moment the target audience is a the more experienced reprap users not at beginners.
+This tool is in an early stage. So at the moment the target audience are experienced users.
 Use at your own risk ;-).
