@@ -156,7 +156,7 @@ function createObjectFromGCode(gcode) {
     },
 
     'default': function(args, info) {
-      console.error('Unknown command:', args.cmd, args, info);
+      //console.error('Unknown command:', args.cmd, args, info);
     }
   });
 

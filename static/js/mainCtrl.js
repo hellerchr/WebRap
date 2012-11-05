@@ -1,137 +1,180 @@
-function mainCtrl($scope, GcodeService, StorageService, PrintControlService, StatusService) {
+function mainCtrl($scope, GcodeService, PrintControlService, StatusService, PollingWrapper) {
 
     $scope.command = ''
     $scope.consoleHistory = [];
     $scope.cmdHistory = [];
+    $scope.printing = false;
+    $scope.gcodeAvailable = false;
     selectedCommand = 0;
+    $scope.loadText = "LOADING..";
 
-    StatusService.get(function (status) {
-        $scope.printing = status.printing;
-        createObjectFromGCode(status.lastGcode);
-    });
+    function init() {
+        //update temperature
+        GcodeService.execute("M105");
 
-    $scope.commands = {
-        'clear':function (params, callback) {
-            $scope.consoleHistory = [];
-            $scope.command = '';
-        },
-        'home':function (params, callback) {
-            if (callback)
-                GcodeService.execute("G28 X0 Y0 Z0", callback);
+        PollingWrapper.createPoller(StatusService, 'get', 5000).success(function (status) {
+            $scope.printing = status.printing;
+            $scope.progress = status.progress;
+            $scope.extruderTemp = parseExtruderTemp(status.temperature);
+        }).start();
+
+        GcodeService.getLastPrint(function (print) {
+            if (print.gcode) {
+                openGCodeFromText(print.gcode);
+                $scope.gcodeAvailable = true;
+            }
             else
-                GcodeService.execute("G28 X0 Y0 Z0");
-        },
-        'print':function (params, callback) {
-            if (params.length == 1) {
-                console.log(params[0]);
-                if ((params[0] === 'start')) $scope.printing = true;
-                if ((params[0] === 'stop')) $scope.printing = false;
-                if (callback)
-                    PrintControlService.execute(params[0], callback);
-                else
-                    PrintControlService.execute(params[0]);
-            }
-        },
-        'temp':function (params, callback) {
-            if (params == undefined || params.length == 0)
-                GcodeService.execute("M105", function (data) {
-                    if (data)
-                        $scope.extruderTemp = data.message.match(/T:(\d+.\d)/)[1];
-
-                    if (callback)
-                        callback(data);
-                });
-            else if (params.length == 1)
-                GcodeService.execute("M104 S" + params[0], callback);
-        },
-        'connect':function (params, callback) {
-            PrintControlService.execute('connect', callback);
-        },
-        'disconnect':function (params, callback) {
-            PrintControlService.execute('disconnect', callback);
-        },
-        'fan':function (params, callback) {
-            if (params.length == 1) {
-                if (params[0] == 'on') {
-                    GcodeService.execute('M106 S255', callback);
-                }
-                else if (params[0] == 'off') {
-                    GcodeService.execute('M107', callback);
-                }
-                else {
-                    GcodeService.execute('M106 S' + parseInt(params[0]), callback);
-                }
-            }
-            else {
-                callback("wrong number of arguments");
-            }
-        },
-        'move':function (params, callback) {
-            var speed = 0;
-
-            if (params.length == 1) {
-                var axis = params[0].toUpperCase()[0];
-                if (axis == 'X' || axis == 'Y')
-                    speed = 2000;
-                if (axis == 'Z')
-                    speed = 300;
-            }
-            else if (params.length == 2)
-                speed = params[1];
-
-            if (callback)
-                GcodeService.execute('G91;G1 ' + params[0].toUpperCase() + ' F' + speed + ';G90', callback);
-            else
-                GcodeService.execute('G91;G1 ' + params[0].toUpperCase() + ' F' + speed + ';G90');
-        },
-        'help':function (params, callback) {
-            var cmds = [];
-            for (key in $scope.commands)
-                cmds.push(key);
-
-            cmds.sort();
-
-            var list = '';
-            for (key in cmds)
-                list += (cmds[key] + ', ');
-
-            callback('available commands: ' + list.substr(0, list.length - 2));
-        },
-        'extrude':function (params, callback) {
-            if (params && params.length == 1) {
-                var length = parseInt(params[0]);
-                var cmd = 'G91;G1 E' + length + ' F300' + ';G90';
-                GcodeService.execute(cmd, callback);
-            }
-            else {
-                if (callback)
-                    GcodeService.execute('G91;G1 E5 F300' + ';G90', callback);
-                else
-                    GcodeService.execute('G91;G1 E5 F300' + ';G90');
-            }
-        }
+                $scope.loadText = "DROP GCODE HERE..";
+        });
     }
 
+    $scope.commands = {
+        'clear':{
+            'help':'clears the console',
+            'function':function (params, callback) {
+                $scope.consoleHistory = [];
+                $scope.command = '';
+            }},
+        'home':{
+            'help':'homes all the axes \n syntax: home',
+            'function':function (params, callback) {
+                if (callback)
+                    GcodeService.execute("G28 X0 Y0 Z0", callback);
+                else
+                    GcodeService.execute("G28 X0 Y0 Z0");
+            }},
+        'print':{
+            'help':'starts/stops the print \n syntax: print [start][stop] \n example: print start',
+            'function':function (params, callback) {
+                if (params.length == 1) {
+                    if ((params[0] === 'start')) $scope.printing = true;
+                    if ((params[0] === 'stop')) $scope.printing = false;
+                    if (callback)
+                        PrintControlService.execute(params[0], callback);
+                    else
+                        PrintControlService.execute(params[0]);
+                }
+            }},
+        'temp':{
+            'help':'sets or shows the temperature \n syntax: temp [<temperature>] \n example: temp 200',
+            'function':function (params, callback) {
+                if (params == undefined || params.length == 0)
+                    GcodeService.execute("M105", function (data) {
+                        if (data)
+                            $scope.extruderTemp = parseExtruderTemp(data.message);
+
+                        if (callback)
+                            callback(data);
+                    });
+                else if (params.length == 1)
+                    GcodeService.execute("M104 S" + params[0], callback);
+            }},
+        'connect':{
+            'help':'connects to the printer',
+            'function':function (params, callback) {
+                PrintControlService.execute('connect', callback);
+            }},
+        'disconnect':{
+            'help':'disconnects from the printer',
+            'function':function (params, callback) {
+                PrintControlService.execute('disconnect', callback);
+            }},
+        'fan':{
+            'help':'sets the speed of the fan \n syntax1: fan <speed> \n syntax2: fan [on][off] \n example: fan on',
+            'function':function (params, callback) {
+                if (params.length == 1) {
+                    if (params[0] == 'on') {
+                        GcodeService.execute('M106 S255', callback);
+                    }
+                    else if (params[0] == 'off') {
+                        GcodeService.execute('M107', callback);
+                    }
+                    else {
+                        GcodeService.execute('M106 S' + parseInt(params[0]), callback);
+                    }
+                }
+                else {
+                    callback("wrong number of arguments");
+                }
+            }},
+        'move':{
+            'help':'move the printhead \n syntax: move <axis><distance> [<speed>] \n example: move x10',
+            'function':function (params, callback) {
+
+                if (params.length > 0) {
+                    var speed = 0;
+                    var axisMove = params[0].toUpperCase();
+
+                    if (params.length == 1) {
+                        var axis = axisMove[0];
+                        if (axis == 'X' || axis == 'Y')
+                            speed = 2000;
+                        if (axis == 'Z')
+                            speed = 300;
+                    }
+                    else if (params.length == 2)
+                        speed = params[1];
+
+                    if (callback)
+                        GcodeService.execute('G91;G1 ' + axisMove + ' F' + speed + ';G90', callback);
+                    else
+                        GcodeService.execute('G91;G1 ' + axisMove + ' F' + speed + ';G90');
+                }
+            }},
+        'help':{
+            'help':'I like you, you\'ve got humor :-)',
+            'function':function (params, callback) {
+                //list all commands
+                if (params.length == 0) {
+                    var cmds = [];
+                    for (key in $scope.commands)
+                        cmds.push(key);
+
+                    cmds.sort();
+
+                    var list = '';
+                    for (key in cmds)
+                        list += (cmds[key] + ', ');
+
+                    callback('available commands: \n' + list.substr(0, list.length - 2) + "\n type 'help <command>' for more information");
+                }
+
+                //help for specific command
+                else {
+                    var helpText = "";
+
+                    if ($scope.commands[params[0]])
+                        helpText = $scope.commands[params[0]].help;
+
+                    callback(helpText);
+                }
+            }},
+        'extrude':{
+            'help':'extrudes n millimeter plastic \n syntax: extrude <distance in mm> \n example: extrude 5',
+            'function':function (params, callback) {
+                if (params && params.length == 1) {
+                    var length = parseInt(params[0]);
+                    var cmd = 'G91;G1 E' + length + ' F300' + ';G90';
+                    GcodeService.execute(cmd, callback);
+                }
+                else {
+                    if (callback)
+                        GcodeService.execute('G91;G1 E5 F300' + ';G90', callback);
+                    else
+                        GcodeService.execute('G91;G1 E5 F300' + ';G90');
+                }
+            }
+        }}
+
     $scope.sendCommand = function (command) {
-        command = command.trim();
-
-        var commands = undefined;
-
-        //special case: 'def' don't tread semicolon as followup command
-        if (command.split(" ")[0] == 'def')
-            var commands = [command];
-        else
-            commands = command.split(";")
+        var commands = command.trim().split(";")
 
         for (var i = 0; i < commands.length; i++) {
             var commandWord = commands[i].split(" ")[0];
 
             if ($scope.commands.hasOwnProperty(commandWord)) {
                 var params = commands[i].split(" ").slice(1);
-                $scope.commands[commandWord](params, saveCommand);
-            }
-            else if ($scope.userCommands.hasOwnProperty(commandWord)) {
-                $scope.sendCommand($scope.userCommands[commandWord]);
+                $scope.commands[commandWord].function(params, saveCommand);
             }
             else
                 GcodeService.execute(command, saveCommand);
@@ -157,20 +200,28 @@ function mainCtrl($scope, GcodeService, StorageService, PrintControlService, Sta
     }
 
     function saveCommand(response) {
+
+        function addToConsole(text) {
+            if (text) {
+                var lines = text.trim().split("\n");
+                for (var i = 0; i < lines.length; i++) {
+                    $scope.consoleHistory.push('» ' + lines[i].trim());
+                }
+            }
+        }
+
         if ($scope.command) {
 
             $scope.cmdHistory.push($scope.command);
 
-            if ($scope.command != "clear") {
+            if ($scope.command != "clear")
                 $scope.consoleHistory.push($scope.command);
-            }
 
             if (response) {
-                if (response.hasOwnProperty("message")) {
-                    $scope.consoleHistory.push('» ' + response.message);
-                }
+                if (response.hasOwnProperty("message"))
+                    addToConsole(response.message);
                 else
-                    $scope.consoleHistory.push('» ' + response);
+                    addToConsole(response);
             }
 
             //scroll console down
@@ -183,8 +234,24 @@ function mainCtrl($scope, GcodeService, StorageService, PrintControlService, Sta
         }
     }
 
-    $scope.storeFile = function (fileName, data) {
-        var data = { 'name':fileName, 'data':data }
-        StorageService.store(data);
+    function parseExtruderTemp(message) {
+        if (message)
+            return message.match(/T:(\d+.\d)/)[1];
     }
+
+    $scope.storeFile = function (fileName, data, callback) {
+        var data = { 'name':fileName, 'data':data }
+        $scope.gcodeAvailable = false;
+        GcodeService.storePrint(data, function () {
+            $scope.gcodeAvailable = true;
+            callback();
+        });
+    }
+
+    $scope.mouseMove = function(e) {
+        //todo: implement camera moving
+    }
+
+    init();
 }
+

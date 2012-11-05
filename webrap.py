@@ -3,6 +3,8 @@ import json
 import time
 import settings
 import sys
+import os
+
 from pronterface import printcore
 
 GCODE_TEMP_FILE = './temp.gcode'
@@ -12,13 +14,15 @@ app = Flask(__name__)
 printer = printcore.printcore()
 printer.loud = True
 
+temperature = 0
+
 @app.route('/')
-def hello_world():
+def index():
     return send_file('index.html')
 
 
-@app.route('/filestore', methods=['POST'])
-def store():
+@app.route('/gcode/storeprint', methods=['POST'])
+def gcode_storeprint():
     data = json.loads(request.data)
     f = open(GCODE_TEMP_FILE, 'w+')
     f.write(data["data"])
@@ -26,16 +30,53 @@ def store():
     return "OK"
 
 
-@app.route('/status')
-def status():
+@app.route('/gcode/getlastprint')
+def gcode_getlastprint():
+    gcode = ""
+    if (os.path.isfile(GCODE_TEMP_FILE)):
+        gcode = open(GCODE_TEMP_FILE).read()
+
     response = {
-        'printing': printer.printing,
-        'lastGcode': open(GCODE_TEMP_FILE).read()
+        'gcode': gcode
     }
     return json.dumps(response)
 
 
-@app.route('/printcontrol', methods=['GET','POST'])
+@app.route('/gcode/execute', methods=['POST'])
+def gcode_execute():
+    # todo: not thread save..
+    printer.received = []
+
+    response = {
+        'message': 'OK',
+        'success': True
+    }
+
+    commands = request.data.split(";")
+    for command in commands:
+        printer.send_now(command.strip())
+
+    time.sleep(0.2)
+
+    response['message'] = '\n'.join(printer.received)
+    return json.dumps(response)
+
+
+@app.route('/status')
+def status():
+    progress = "00.0"
+    if (printer.printing):
+        progress = "%02.1f" % (100 * float(printer.queueindex) / len(printer.mainqueue))
+
+    response = {
+        'printing': printer.printing,
+        'progress': progress,
+        'temperature': temperature
+    }
+    return json.dumps(response)
+
+
+@app.route('/printcontrol', methods=['POST'])
 def printcontrol():
     # todo: not thread save..
     printer.received = []
@@ -51,19 +92,20 @@ def printcontrol():
 
     elif (request.data == 'stop'):
         printer.pause()
-        time.sleep(0.5)
-        printer.reset()
-        time.sleep(0.5)
-        printer.send_now("M104 0")
+        time.sleep(0.2)
+        printer.send_now("M104 S0")
+        time.sleep(0.2)
         printer.send_now("G91")
-        printer.send_now("G1 Z10 F300")
+        time.sleep(0.1)
+        printer.send_now("G1 Z5 F300")
+        time.sleep(0.1)
         printer.send_now("G90")
+        time.sleep(0.2)
         printer.send_now("G28 X0 Y0")
 
-
     elif (request.data == 'connect'):
-        printer.reset()
         printer.connect(settings['USB_PORT'], settings['BAUD_RATE'])
+        printer.tempcb = setTemperature
 
     elif (request.data == 'disconnect'):
         printer.disconnect()
@@ -74,32 +116,18 @@ def printcontrol():
     return json.dumps(response)
 
 
-@app.route('/sendgcode', methods=['POST'])
-def send_gcode():
-    # todo: not thread save..
-    printer.received = []
-
-    response = {
-        'message': 'OK',
-        'success': True
-    }
-
-    commands = request.data.split(";")
-    for command in commands:
-        printer.send_now(command.strip())
-
-    time.sleep(0.15)
-
-    response['message'] = '\n'.join(printer.received)
-    return json.dumps(response)
+def setTemperature(newTemp):
+    global temperature
+    temperature = newTemp
 
 if __name__ == '__main__':
     if (len(sys.argv) == 2):
-	if (sys.argv[1] == 'dev'):
-        	settings = settings.development
-        	app.debug = True
+        if (sys.argv[1] == 'dev'):
+            settings = settings.development
+            app.debug = True
     else:
         settings = settings.standard
 
     printer.connect(settings['USB_PORT'], settings['BAUD_RATE'])
+    printer.tempcb = setTemperature
     app.run(host='0.0.0.0')

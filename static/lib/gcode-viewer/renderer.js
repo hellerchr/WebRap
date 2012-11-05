@@ -42,8 +42,9 @@ function createScene(element) {
 
   // Action!
   function render() {
-    //controls.update();
-    renderer.render(scene, camera);
+      var timer = new Date().getTime() * 0.0005;
+
+      renderer.render(scene, camera);
 
     requestAnimationFrame(render); // And repeat...
   }

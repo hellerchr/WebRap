@@ -112,14 +112,14 @@ class printcore():
                     except:
                         pass
                 self.online=True
-                if(line.startswith('ok')):
+                #if(line.startswith('ok')):
                     #self.resendfrom=-1
                     #put temp handling here
-                    if "T:" in line and self.tempcb is not None:
-                        try:
-                            self.tempcb(line)
-                        except:
-                            pass
+                if "T:" in line and self.tempcb is not None:
+                    try:
+                        self.tempcb(line)
+                    except:
+                        pass
                     #callback for temp, status, whatever
             elif(line.startswith('Error')):
                 if self.errorcb is not None:
