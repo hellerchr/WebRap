@@ -19,9 +19,11 @@ GCodeParser.prototype.parseLine = function(text, info) {
         'cmd': cmd
       };
       tokens.splice(1).forEach(function(token) {
-        var key = token[0].toLowerCase();
-        var value = parseFloat(token.substring(1));
-        args[key] = value;
+        if (token) {
+            var key = token[0].toLowerCase();
+            var value = parseFloat(token.substring(1));
+            args[key] = value;
+        }
       });
       var handler = this.handlers[tokens[0]] || this.handlers['default'];
       if (handler) {

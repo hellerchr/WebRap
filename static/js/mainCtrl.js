@@ -248,10 +248,6 @@ function mainCtrl($scope, GcodeService, PrintControlService, StatusService, Poll
         });
     }
 
-    $scope.mouseMove = function(e) {
-        //todo: implement camera moving
-    }
-
     init();
 }
 
