@@ -1,7 +1,7 @@
 __author__ = 'christianheller'
 
 development = {
-    'USB_PORT'  :   '/dev/tty.usbmodemfa131',
+    'USB_PORT'  :   '/dev/tty.usbmodemfd121',
     'BAUD_RATE' :   '230400'
 }
 

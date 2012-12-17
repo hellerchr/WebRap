@@ -87,7 +87,7 @@ def printcontrol():
     }
 
     if (request.data == 'start'):
-        gcode = [i.replace("\n", "") for i in open(GCODE_TEMP_FILE)]
+        gcode = [i.replace("\n","").replace("\r","") for i in open(GCODE_TEMP_FILE)]
         printer.startprint(gcode)
 
     elif (request.data == 'stop'):
