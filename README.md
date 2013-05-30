@@ -19,14 +19,18 @@ Use at your own risk ;-).
 Installation
 ============
 
-# install git + pip
-sudo apt-get install python-pip git-core
+1. install git + pip
+    
+  `sudo apt-get install python-pip git-core`
 
-# install required python libs
-sudo pip install flask werkzeug pyserial
+2. install required python libs
+    
+  `sudo pip install flask werkzeug pyserial`
 
-# clone the code
-git clone https://github.com/cheller/WebRap.git
+3. clone the code
+    
+  `git clone https://github.com/cheller/WebRap.git`
 
-# run it, make sure to adapt settings.py before
-python ./webrap.py
+4. run it, make sure to adapt settings.py before
+    
+  `python ./webrap.py`
