@@ -6,13 +6,11 @@ import sys
 import os
 
 from pronterface import printcore
+from pronterface.printrun import gcoder
 
 GCODE_TEMP_FILE = './temp.gcode'
 
 app = Flask(__name__)
-
-printer = printcore.printcore()
-printer.loud = True
 
 temperature = 0
 
@@ -87,7 +85,7 @@ def printcontrol():
     }
 
     if (request.data == 'start'):
-        gcode = [i.replace("\n","").replace("\r","") for i in open(GCODE_TEMP_FILE)]
+        gcode = gcoder.GCode(open(GCODE_TEMP_FILE))
         printer.startprint(gcode)
 
     elif (request.data == 'stop'):
@@ -128,6 +126,8 @@ if __name__ == '__main__':
     else:
         settings = settings.standard
 
-    printer.connect(settings['USB_PORT'], settings['BAUD_RATE'])
+    printer = printcore.printcore(settings['USB_PORT'], settings['BAUD_RATE'])
+    printer.loud = True
     printer.tempcb = setTemperature
+    time.sleep(5)
     app.run(host='0.0.0.0')
